@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: cyber-backend-service-1
+    ports:
+      - '5000:5000'
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+    restart: always
+    depends_on:
+      - redis
+    networks:
+      - cyber-net
+
+  redis:
+    image: redis:7.0
+    ports:
+      - "6379:6379"
+    networks:
+      - cyber-net
+
+networks:
+  cyber-net:
+    driver: bridge

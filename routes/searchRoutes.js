@@ -1,18 +1,20 @@
 const express = require('express');
 const { search } = require('../controllers/searchController');
 const axios = require('axios');
-const logger = require('../utils/logger'); // Import the logger
+const logger = require('../utils/logger');
+const mysql = require('mysql2');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 
-app.use(bodyParser.json());
 //Update database configuration for MySQL
 const db = mysql.createConnection({
-    host: 'localhost',
+    host: '167.235.238.249',
     port: 3306,
     user: 'root',
-    password: '1234',
-    database: 'cyber'
+    password: 's3lWbRIc6Owl9am',
+    database: 'security_data'
 });
 
 db.connect(err => {
@@ -21,10 +23,6 @@ db.connect(err => {
         return;
     }
     console.log('Connected to MySQL database.');
-});
-
-app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`); //Update server endpoint
 });
 
 router.get('/search', (req, res, next) => {
@@ -84,7 +82,7 @@ router.get('/osint-search', async (req, res, next) => {
 const JWT_SECRET = 'q1q2'; // Change this to a secure key in production
 
 // Registration Endpoint
-app.post('/register', async (req, res) => {
+router.post('/register', async (req, res) => {
     const { username, email, password } = req.body;
 
     try {
@@ -125,7 +123,7 @@ app.post('/register', async (req, res) => {
 });
 
 // Login Endpoint
-app.post('/login', (req, res) => {
+router.post('/login', (req, res) => {
     const { username, password } = req.body;
 
     const sql = 'SELECT * FROM users WHERE username = ?';

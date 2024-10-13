@@ -10,10 +10,11 @@ const swaggerUi = require('swagger-ui-express');
 const cors = require('cors');
 
 const app = express();
+//app.use(bodyParser.json());
 
 // Enable CORS for your frontend before other middlewares
 app.use(cors({
-    origin: '*',  // Replace with your frontend URL
+    origin: 'https://sec-ui.knc.lv',  // Replace with your frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Allow specific methods
     credentials: true  // Allow credentials if needed
 }));
@@ -24,7 +25,7 @@ app.use(requestLogger);
 app.use(rateLimiter);
 
 // Routes
-app.use('/api', validateSearch, searchRoutes);
+app.use('/api', searchRoutes);
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {

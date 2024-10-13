@@ -30,11 +30,11 @@ const breakerOptions = {
 // Create a new circuit breaker instance
 const breaker = new CircuitBreaker(async (query, queryType) => {
     let type;
-    if (queryType === "username") {
+    if (queryType === "username" || queryType === "ip") {
         type = "sec-csv-people-2024.10.07,sec-csv-address-2024.10.07"
     } else if (queryType === "email") {
         type = "sec-csv-people-2024.10.07"
-    } else if (queryType === "address" || queryType === "ip") {
+    } else if (queryType === "address") {
         type = "sec-csv-address-2024.10.07";
     } else {
         type = "sec-csv-people-2024.10.07,sec-csv-address-2024.10.07,sec-mysql-telegram_online_gathering1-2024.10.07";
@@ -42,14 +42,14 @@ const breaker = new CircuitBreaker(async (query, queryType) => {
 
     const response = await client.search({
 
-        index: type,  // Update this with your index name
+        index: type,
         body: {
             query: {
                 multi_match: {
                     query: query,
-                    fields: ['ip', 'firstname', 'lastname', 'email', 'telephone', 'shipping_address_1', 'payment_address_1', 'log.file.path', 'message', 'event.original', 'host.name', '*'], // Add all required fields you want to search in, or use '*' to search in all fields
-                    type: 'best_fields', // This can be 'phrase', 'phrase_prefix', etc., depending on how you want to match
-                    fuzziness: 'AUTO'  // Adds tolerance for typos
+                    fields: ['*'],
+                    type: 'best_fields',
+                    fuzziness: 'AUTO'
                 }
             }
         }

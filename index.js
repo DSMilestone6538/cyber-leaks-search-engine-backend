@@ -13,7 +13,7 @@ const app = express();
 
 // Enable CORS for your frontend before other middlewares
 app.use(cors({
-    origin: 'https://sec-ui.knc.lv',  // Replace with your frontend URL
+    origin: '*',  // Replace with your frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Allow specific methods
     credentials: true  // Allow credentials if needed
 }));

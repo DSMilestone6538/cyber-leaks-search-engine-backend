@@ -5,8 +5,22 @@ const logger = require('../utils/logger');
 const mysql = require('mysql2');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { Client } = require('@elastic/elasticsearch');
 
 const router = express.Router();
+
+// Initialize Elasticsearch client
+const esClient = new Client({
+    node: config.elasticsearch.node,
+    auth: {
+        username: config.elasticsearch.username,
+        password: config.elasticsearch.password,
+    },
+    tls: {
+        ca: caCert,  // Pass the CA certificate here
+        rejectUnauthorized: true,  // Ensure the certificate is validated
+    }
+});
 
 //Update database configuration for MySQL
 const db = mysql.createConnection({
@@ -37,43 +51,84 @@ router.get('/search', (req, res, next) => {
     search(req, res, next);
 });
 
-// New route to make request to external API
+//make request to external API or retrieve from Elasticsearch if exists
 router.get('/osint-search', async (req, res, next) => {
     try {
-        const { query, type } = req.query; // Extract both query and type from request parameters
+        const { query, type } = req.query;
 
-        // Validate the presence of both query and type
+        // Validate input
         if (!query || !type) {
             return res.status(400).json({ error: 'Both query and type parameters are required' });
         }
 
-        // Validate that type is one of email, phone, or username
+        // Validate query type
         const validTypes = ['email', 'phone', 'username'];
         if (!validTypes.includes(type)) {
             return res.status(400).json({ error: `Invalid type parameter. Allowed values are: ${validTypes.join(', ')}` });
         }
 
-        // Log the query and type parameters
-        logger.info(`Fetching Osint API with query: ${query} and type: ${type}`);
+        // Log the query and type
+        logger.info(`Checking Elasticsearch for query: ${query} and type: ${type}`);
+
+        // Search Elasticsearch for an existing document
+        const esSearchResult = await esClient.search({
+            index: 'osint-search-results', // Elasticsearch index name
+            body: {
+                query: {
+                    bool: {
+                        must: [
+                            { match: { query: query } },
+                            { match: { type: type } }
+                        ]
+                    }
+                }
+            }
+        });
+
+        // Check if any hits were returned from Elasticsearch
+        if (esSearchResult.body.hits.total.value > 0) {
+            logger.info(`Found matching document in Elasticsearch for query: ${query} and type: ${type}`);
+
+            // Return the data directly from Elasticsearch
+            const esDocument = esSearchResult.body.hits.hits[0]._source;
+            return res.json(esDocument.response);
+        }
+
+        // If no match is found in Elasticsearch, proceed to request from the external API
+        logger.info(`No matching document found in Elasticsearch. Fetching from Osint API...`);
 
         const url = `https://api.osint.industries/v2/request?type=${encodeURIComponent(type)}&query=${encodeURIComponent(query)}&timeout=150`;
-
-        // Make request to the external API using axios
-        const response = await axios.get(url, {
+        const apiResponse = await axios.get(url, {
             headers: {
                 'api-key': '4a549bcd0f2d663f62010bcf587bfe4c',
                 'accept': 'application/json'
             }
         });
 
-        // Log successful response
         logger.info(`Received response from Osint API for query: ${query} and type: ${type}`);
 
-        // Send back the response from the external API to the client
-        res.json(response.data);
+        // Prepare the Elasticsearch document with query, type, and response array
+        const esDocument = {
+            query: query,
+            type: type,
+            response: apiResponse.data, // Store the entire response array
+            timestamp: new Date().toISOString() // Optional timestamp
+        };
+
+        // Index the document into Elasticsearch
+        const esResponse = await esClient.index({
+            index: 'osint-search-results',
+            body: esDocument
+        });
+
+        logger.info(`Indexed new data into Elasticsearch with ID: ${esResponse.body._id}`);
+
+        // Return the original API response to the client
+        res.json(apiResponse.data);
+
     } catch (error) {
-        logger.error(`Error fetching data from Osint API: ${error.message}`);
-        res.status(500).json({ error: 'An error occurred while fetching data from Osint API' });
+        logger.error(`Error processing request: ${error.message}`);
+        res.status(500).json({ error: 'An error occurred while processing the request.' });
     }
 });
 

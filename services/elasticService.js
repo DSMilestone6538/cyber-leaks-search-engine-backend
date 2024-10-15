@@ -48,8 +48,9 @@ const breaker = new CircuitBreaker(async (query, queryType) => {
                 multi_match: {
                     query: query,
                     fields: ['*'],
-                    type: 'best_fields',
-                    fuzziness: 'AUTO'
+                    type: 'phrase',
+                    operator: 'and'
+                    // fuzziness: 'AUTO'
                 }
             }
         }
